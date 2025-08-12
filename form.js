@@ -1,10 +1,14 @@
 $(document).ready(function() {
+
+    // For some reason default values dont show.
+    $("#batch_connect_session_context_prescision_dp").prop('checked', true);
+    $("#batch_connect_session_context_is3d").prop('checked', true);
+
     function updateSubmitState() {
         var licSelect = $("select#batch_connect_session_context_ansyslic");
-        var selected = licSelect.find('option:selected')
+        var selected = licSelect.find('option');
         var submitBtn = $(':input[type="submit"]');
-        console.log(selected);
-        if (selected && selected !== '') {
+        if (!selected) {
             submitBtn.prop('disabled', true);
             submitBtn.prop('title', "NO LICENCE");
         } else {
