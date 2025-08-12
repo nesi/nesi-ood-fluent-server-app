@@ -1,7 +1,6 @@
-<form action="/rnode/<%= host %>/<%= port %>/matlab?mwi-auth-token=<%= mwitoken %>" method="post" target="_blank">
-  <input type="hidden" name="mwi-auth-token" value="<%= mwitoken %>"/>
+<form action="/rnode/<%= host %>/<%= port %>?fluent-auth-token=<%= fwtoken %>" method="post" target="_blank">
+  <input type="hidden" name="fw-auth-token" value="<%= fwtoken %>"/>
   <button class="btn btn-primary" style="background-color: rgb(224 94 27);border-color: rgb(244 114 47);" type="submit">
-    <i class="fa-solid fa-mound"></i> Connect to MATLAB Server
+    <i class="fa-solid fa-mound"></i> Connect to FLUENT Server
   </button>
-  <img style="display:none" src="https://www.nesi.org.nz/sites/default/files/media/DininduSenanayake-newsletter.jpg">
 </form>

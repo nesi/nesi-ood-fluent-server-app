@@ -11,18 +11,8 @@ source /bin/save_passwd_as_secret
 
 <%-
   require 'securerandom'
-  mwitoken=SecureRandom.uuid
+  fwtoken=SecureRandom.uuid
 -%>
-export MWI_AUTH_TOKEN="<%= mwitoken %>"
-export mwitoken="<%= mwitoken %>"
+export FLUENT_WEBSERVER_TOKEN="<%= fwtoken %>"
 
-/bin/bash /opt/open_ondemand/helpers/k8_helper mwitoken "$mwitoken"
-
-export MWI_APP_PORT=8080  #"$PORT_CFG"
-#export MWI_APP_HOST="$HOST_CFG"
-
-export host="$HOST_CFG"
-export port="$PORT_CFG"
-
-echo "host is: ${host}"
-echo "port is: ${port}"
+/bin/bash /opt/open_ondemand/helpers/k8_helper fwtoken "$FLUENT_WEBSERVER_TOKEN"
