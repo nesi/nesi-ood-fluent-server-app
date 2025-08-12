@@ -18,47 +18,110 @@ cluster: "my-k8s-cluster"
 
 form:
   - account
-  - mver
   - bc_num_hours
   - num_cores
   - num_mem
   - node
-description: Request a MATLAB Server
+  - ansysver
+  - ansyslic
+  - ismeshing
+  - is3d
+  - prescision
+
+description: Request an ANSYS Fluent Server
 submit: submit.yml.erb
-title: MATLAB-Server
+title: Fluent-Server
 
 
 # Define attribute values that aren't meant to be modified by the user within
 # the Dashboard form
 attributes:
-  # Set the corresponding modules that need to be loaded for Jupyter to run
-  #
-  # @note It is called within the batch job as `module load <modules>` if
-  #   defined
-  # @example Do not load any modules
-  #     modules: ""
-  # @example Using default python module
-  #     modules: "python"
-  # @example Using specific python module
-  #     modules: "python/3.5"
-  # @example Using combination of modules
-  #     modules: "python/3.5 cuda/8.0.44"
-  modules: "matlab-proxy"
-
-  mver:
+  ansysver:
     widget: select
-    label: "MATLAB Version"
+    label: "ANSYS Version"
+    required: true
+    value: 2025R1
     options:
-      - ["2020b", "MATLAB/2020b"]
-      - ["2021a", "MATLAB/2021a"]
-      - ["2021b", "MATLAB/2021b"]
-      - ["2022a", "MATLAB/2022a"]
-      - ["2023a", "MATLAB/2023a"]
-      - ["2023b", "MATLAB/2023b"]
-
-  # Any extra command line arguments to feed to the `jupyter notebook ...`
-  # command that launches the Jupyter notebook within the batch job
-  
+    <%- 
+      # Get available modules dynamically from LMOD paths
+      begin
+        module_path =  "/opt/nesi/lmod/mahuika/ANSYS"
+        available_modules = []
+        Dir.glob("#{module_path}/*.lua").each do |file|
+          # Extract module name from file path
+          relative_path = file.sub("#{module_path}/", "")
+          module_name = relative_path.sub(/\.lua$/, "")                
+          available_modules << module_name
+        end
+        
+        # Sort modules and create options
+        available_modules.uniq.sort.each do |mod|
+          # Create a friendly display name
+          display_name = mod.include?('/') ? "#{mod.split('/').first}/#{mod.split('/').last}" : mod
+      -%>
+      - ["<%= display_name %>", "<%= mod %>"]
+      <%- 
+        end
+      end
+      -%>
+  ansyslic:
+    widget: select
+    label: "Licence"
+    required: true
+    options:
+    <%- 
+      # Get available licences dynamically from licence path
+      begin
+        lic_base_path =  "/opt/nesi/share/ANSYS/Licenses"
+        all_lic = []
+        Dir.glob("#{lic_base_path}/*.lic").each do |lic_path|
+          if Pathname.new("lic_path").readable?
+            all_lic << lic_path
+          end
+        end
+        all_lic.each do |lic_path|
+          lic_name = "#{lic_path.split('/').last.split('.').first}"
+          -%>
+            - ["<%= lic_name %>", "<%= lic_path %>"]
+          <%- 
+        end
+      -%>
+    help:<%- 
+      if all_lic.empty?
+      -%>
+      "**WARNING: YOU DO NOT HAVE ACCESS TO A VALID ANSYS LICENCE**\n\nContact NeSI support if you believe this is a mistake."
+      <%-
+      else
+      -%>
+      "Select which licence to use."
+      <%-
+      end
+    end
+    -%>
+    display: true
+  ismeshing:
+    label: "Mode"
+    widget: "radio_button"
+    help: |
+      Whether to launch in meshing or solution mode.
+    options:
+      - ["Meshing", "-meshing"]
+      - ["Solution", ""]
+    value: ["Solution", ""]
+  is3d:
+    label: "2D/3D"
+    widget: "radio_button"
+    value: "3d"
+    options:
+      - ["3d"]
+      - ["2d"]
+  prescision:
+    label: "Prescision"
+    widget: "radio_button"
+    value: "Double"
+    options:
+      - ["Double", "dp"]
+      - ["Single", ""]
   node: ""
   account:
     label: "Project Code"

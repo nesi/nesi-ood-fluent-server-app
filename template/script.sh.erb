@@ -6,7 +6,10 @@ module purge
 
 # load matlab Server
 echo "module load"
-module load <%= context.mver %>
+module load <%= context.ansysver %>
+source <%= context.ansyslic %> || exit
+export ANSYSLMD_LICENSE_FILE=$ANSYSLI_SERVERS
+export ANSOFTD_LICENSE_FILE=$ANSYSLI_SERVERS
 
 # load 
 module load matlab-proxy
@@ -21,10 +24,8 @@ ulimit -s unlimited
 
 TMPDIR="$(mktemp -d)"
 
-# Output debug info
-module list
 
 # Launch the matlab Server
-echo "Starting up matlab..."
+echo "Starting up Fluent..."
 set -x
-matlab-proxy-app
+fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -mpi=openmpi -nm -ws -ws-port=5000 -ws-portspan=0

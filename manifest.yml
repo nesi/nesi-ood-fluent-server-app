@@ -1,8 +1,6 @@
 ---
-name: MATLAB Server
+name: Fluent Server
 category: Interactive Apps
 role: batch_connect
 description: |
-  This app will launch [MATLAB], on a cluster node.
-
-  [MATLAB]: https://au.mathworks.com/products/matlab.html
+  This app will launch ANSYS Fluent, on a cluster node.
