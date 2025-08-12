@@ -36,12 +36,12 @@
 batch_connect:
   template: "basic"
   conn_params:
-    - mwitoken
+    - fwtoken
 script:
   wall_time: "<%= bc_num_hours.to_i * 3600 %>"
   native:
     container:
-      name: "matlab"
+      name: "fluent"
       image: "ghcr.io/nesi/nesi-docker-base:v0.6.0"
       command: ["/bin/bash","-l","<%= staged_root %>/job_script_content.sh"]
       restart_policy: 'OnFailure'

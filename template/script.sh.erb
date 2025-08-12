@@ -4,28 +4,17 @@ echo "Running script.sh.erb script"
 echo "module purge"
 module purge
 
-# load matlab Server
+# load ansys Server
 echo "module load"
-module load <%= context.ansysver %>
-source <%= context.ansyslic %> || exit
-export ANSYSLMD_LICENSE_FILE=$ANSYSLI_SERVERS
-export ANSOFTD_LICENSE_FILE=$ANSYSLI_SERVERS
+module load ANSYS/<%= context.ansysver %>
+export ANSOFTD_LICENSE_FILE=$(awk -F= '/^ANSYSLI_SERVERS=/ {print $2}'  <%= context.ansyslic %>)
+export ANSYSLMD_LICENSE_FILE=$ANSOFTD_LICENSE_FILE
 
-# load 
-module load matlab-proxy
-
-# matlabServer doesn't inherit "ulimit -s" from system config /etc/security/limits.d/custom.conf
-# Therefore, we are setting it here
-ulimit -s unlimited
-
-#
-# Start matlab Server
-#
 
 TMPDIR="$(mktemp -d)"
 
 
-# Launch the matlab Server
+# Launch the Fluent Server
 echo "Starting up Fluent..."
 set -x
 fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -mpi=openmpi -nm -ws -ws-port=5000 -ws-portspan=0

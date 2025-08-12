@@ -75,7 +75,7 @@ attributes:
         lic_base_path =  "/opt/nesi/share/ANSYS/Licenses"
         all_lic = []
         Dir.glob("#{lic_base_path}/*.lic").each do |lic_path|
-          if Pathname.new("lic_path").readable?
+          if Pathname.new(lic_path).readable?
             all_lic << lic_path
           end
         end
@@ -101,17 +101,18 @@ attributes:
     display: true
   ismeshing:
     label: "Mode"
-    widget: "radio_button"
+    widget: select
+    required: true
     help: |
-      Whether to launch in meshing or solution mode.
+      What mode to launch in.
     options:
-      - ["Meshing", "-meshing"]
       - ["Solution", ""]
-    value: ["Solution", ""]
+      - ["Meshing", "-meshing"]
   is3d:
     label: "2D/3D"
     widget: "radio_button"
     value: "3d"
+    required: true
     options:
       - ["3d"]
       - ["2d"]
@@ -119,6 +120,7 @@ attributes:
     label: "Prescision"
     widget: "radio_button"
     value: "Double"
+    required: true
     options:
       - ["Double", "dp"]
       - ["Single", ""]
@@ -146,9 +148,9 @@ attributes:
   num_mem:
     label: Memory per job (GB)
     max: 32
-    min: 1
+    min: 4
     step: 1
-    value: 1
+    value: 4
     widget: number_field
 
 # All of the attributes that make up the Dashboard form (in respective order),
