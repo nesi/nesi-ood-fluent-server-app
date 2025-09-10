@@ -6,15 +6,29 @@ module purge
 
 # load ansys Server
 echo "module load"
+echo "member of groups: $(groups)"
 module load ANSYS/<%= context.ansysver %>
-export ANSOFTD_LICENSE_FILE=$(awk -F= '/^ANSYSLI_SERVERS=/ {print $2}'  <%= context.ansyslic %>)
+
+export ANSOFTD_LICENSE_FILE=$(awk -F= '/^SERVER=/ {print $2}'  <%= context.ansyslic %>)
 export ANSYSLMD_LICENSE_FILE=$ANSOFTD_LICENSE_FILE
 
+echo "ANSYSLMD_LICENSE_FILE=$ANSOFTD_LICENSE_FILE"
+
+# Until taken out of module file
+module unload Qt5
 
 TMPDIR="$(mktemp -d)"
 
+CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=8080 -ws-portspan=0 -ws-js-url=$HOST_CFG"
 
 # Launch the Fluent Server
 echo "Starting up Fluent..."
+
+# ANSYS will loop over every possible file descriptor before starting.
+# Limit must be small to avoid this taking forever.
+ulimit -n  16384
+
 set -x
-fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -mpi=openmpi -nm -ws -ws-port=5000 -ws-portspan=0
+echo "$CMD"
+$CMD
+# -mpi=openmpi -nm

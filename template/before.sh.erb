@@ -14,5 +14,9 @@ source /bin/save_passwd_as_secret
   fwtoken=SecureRandom.uuid
 -%>
 export FLUENT_WEBSERVER_TOKEN="<%= fwtoken %>"
+export HOST_CFG
 
 /bin/bash /opt/open_ondemand/helpers/k8_helper fwtoken "$FLUENT_WEBSERVER_TOKEN"
+
+echo "FLUENT_WEBSERVER_TOKEN=$FLUENT_WEBSERVER_TOKEN"
+echo "HOST_CFG=$HOST_CFG"
