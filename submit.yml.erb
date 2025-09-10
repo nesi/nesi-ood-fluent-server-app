@@ -51,6 +51,12 @@ script:
       port: "8080"
       cpu: "<%= num_cores %>"
       memory: "<%= num_mem %>Gi"
+      <% if all_supplemental_groups.any? %>
+      supplemental_groups:
+        <% all_supplemental_groups.each do |gid| %>
+        - <%= gid %>
+        <% end %>
+      <% end %>
     mounts:
       - type: nfs
         name: home
