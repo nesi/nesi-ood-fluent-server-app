@@ -1,6 +1,9 @@
 ---
-name: Fluent Server
+name: ANSYS Fluent [DEV]
 category: Interactive Apps
 role: batch_connect
 description: |
-  This app will launch ANSYS Fluent, on a cluster node.
+  Will launch ANSYS Fluent server.
+  THIS APP IS STILL UNDER DEVELOPMENT.
+  See [GitHub](https://github.com/nesi/nesi-ood-fluent-server-app) for known issues.
+  Please [contact support](mailto:support@nesi.org.nz) if you have a bug to report.

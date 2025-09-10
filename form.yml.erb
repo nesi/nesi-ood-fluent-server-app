@@ -30,7 +30,7 @@ form:
 
 description: Request an ANSYS Fluent Server
 submit: submit.yml.erb
-title: Fluent-Server
+title: ANSYS Fluent
 
 
 # Define attribute values that aren't meant to be modified by the user within
@@ -42,28 +42,8 @@ attributes:
     required: true
     value: 2025R1
     options:
-    <%- 
-      # Get available modules dynamically from LMOD paths
-      begin
-        module_path =  "/opt/nesi/lmod/mahuika/ANSYS"
-        available_modules = []
-        Dir.glob("#{module_path}/*.lua").each do |file|
-          # Extract module name from file path
-          relative_path = file.sub("#{module_path}/", "")
-          module_name = relative_path.sub(/\.lua$/, "")                
-          available_modules << module_name
-        end
-        
-        # Sort modules and create options
-        available_modules.uniq.sort.each do |mod|
-          # Create a friendly display name
-          display_name = mod.include?('/') ? "#{mod.split('/').first}/#{mod.split('/').last}" : mod
-      -%>
-      - ["<%= display_name %>", "<%= mod %>"]
-      <%- 
-        end
-      end
-      -%>
+      - 2024R2
+      - 2025R1
   ansyslic:
     widget: select
     label: "Licence"

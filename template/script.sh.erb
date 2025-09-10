@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 echo "Running script.sh.erb script"
 
 echo "module purge"
@@ -20,8 +19,6 @@ module unload Qt5
 TMPDIR="$(mktemp -d)"
 
 CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=8080 -ws-portspan=0"
-
-#-ws-js-url=$HOST_CFG
 
 # Launch the Fluent Server
 echo "Starting up Fluent..."

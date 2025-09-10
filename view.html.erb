@@ -1,6 +1,6 @@
-<form action="/rnode/<%= host %>/<%= port %>?fluent-auth-token=<%= fwtoken %>" method="post" target="_blank">
+<form action="/rnode/<%= host %>/<%= port %>/?fluent-auth-token=<%= fwtoken %>" method="get" target="_blank">
   <input type="hidden" name="fw-auth-token" value="<%= fwtoken %>"/>
   <button class="btn btn-primary" style="background-color: rgb(224 94 27);border-color: rgb(244 114 47);" type="submit">
-    <i class="fa-solid fa-mound"></i> Connect to FLUENT Server
+    <i class="fa-solid fa-mound"></i> Connect
   </button>
 </form>
