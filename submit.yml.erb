@@ -58,25 +58,29 @@ script:
         <% end %>
       <% end %>
     mounts:
-      - type: nfs
+      - type: host
         name: home
-        host: <%= weka_nfs %>
         path: /home
         destination_path: /home
-      - type: nfs
+      - type: host
+        name: wlghome
+        path: /home
+        destination_path: /scale_wlg_persistent/filesets/home
+      - type: host
         name: project
-        host: <%= weka_nfs %>
-        path: /project
+        path: /nesi/project
         destination_path: /nesi/project
-      - type: nfs
+      - type: host
+        name: wlgproject
+        path: /nesi/project
+        destination_path: /scale_wlg_persistent/filesets/project
+      - type: host
         name: nobackup
-        host: <%= weka_nfs %>
-        path: /scratch
+        path: /nesi/nobackup
         destination_path: /nesi/nobackup
-      - type: nfs
+      - type: host
         name: software
-        host: <%= weka_nfs %>
-        path: /software
+        path: /opt/nesi
         destination_path: /opt/nesi
       - type: host
         name: nss-socket
@@ -88,6 +92,23 @@ script:
         host_type: File
         path: /etc/nsswitch.conf
         destination_path: /etc/nsswitch.conf
+        
+      # Required mounts for SLURM
+      - type: host
+        name: munge-socket
+        host_type: Socket
+        path: /var/run/munge/munge.socket.2
+        destination_path: /var/run/munge/munge.socket.2
+      - type: host
+        name: slurm-conf
+        host_type: File
+        path: /run/slurm/conf/slurm.conf
+        destination_path: /etc/slurm/slurm.conf
+      - type: host
+        name: slurm-nodes-conf
+        host_type: File
+        path: /run/slurm/conf/nodes.conf
+        destination_path: /etc/slurm/nodes.conf
     configmap:
       files:
         - filename: 'k8_helper'
