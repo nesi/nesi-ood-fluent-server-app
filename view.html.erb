@@ -1,6 +1,37 @@
-<form action="/rnode/<%= host %>/<%= port %>/?fluent-auth-token=<%= fwtoken %>" method="get" target="_blank">
-  <input type="hidden" name="fw-auth-token" value="<%= fwtoken %>"/>
-  <button class="btn btn-primary" style="background-color:#ffb71c; border-color: black; color: black" type="submit">
-    <i class="fa-solid fa-mound"></i> Connect
-  </button>
-</form>
+<script>
+function launchFluent() {
+
+  // Create new window.
+  const w = window.open("about:blank", "_blank");
+
+  // Preload session storage before app boots
+  w.sessionStorage.setItem("password", "<%= fwtoken %>");
+  w.location = "/rnode/<%= host %>/<%= port %>/"
+
+  // Timer, wait for DOM to load.
+  const timer = setInterval(() => {
+    // server laggy try catch because sometimes fails.
+    try {
+      // Prevent infinite polling if window closed.
+      if (!w || w.closed) {
+        clearInterval(timer);
+        return;
+      }
+
+      const btn = w.document.querySelector('[data-testid="sign-in-button"]');
+      // If button exisits, click it.
+      if (btn) {
+        btn.click();
+        clearInterval(timer);
+      }
+    } catch (e) {
+      // DOM not ready yet, keep waiting
+    }
+  }, 100);
+}
+</script>
+
+<button class="btn btn-primary"
+        style="background-color:#ffb71c; border-color: black; color: black"
+        onclick="launchFluent()">Connect
+</button>
