@@ -1,9 +1,9 @@
 ---
-name: ANSYS Fluent [DEV]
-category: Interactive Apps
+name: ANSYS Fluent
+category: Specialised Applications
+subcategory: Engineering
 role: batch_connect
 description: |
   Will launch ANSYS Fluent server.
-  THIS APP IS STILL UNDER DEVELOPMENT.
   See [GitHub](https://github.com/nesi/nesi-ood-fluent-server-app) for known issues.
   Please [contact support](mailto:support@nesi.org.nz) if you have a bug to report.
