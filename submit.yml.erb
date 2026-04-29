@@ -48,6 +48,7 @@ script:
       env:
         TZ: "Pacific/Auckland"
         LMOD_SITE_MODULEPATH: "/opt/nesi/CS400_centos7_bdw/modules/all"
+        OMP_NUM_THREADS: "<%= cores %>"
       port: "8080"
       cpu: "<%= num_cores %>"
       memory: "<%= num_mem %>Gi"
