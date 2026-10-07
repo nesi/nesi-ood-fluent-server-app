@@ -38,6 +38,7 @@ batch_connect:
   conn_params:
     - fwtoken
 script:
+  accounting_id: "<%= account %>"
   wall_time: "<%= bc_num_hours.to_i * 3600 %>"
   native:
     container:
