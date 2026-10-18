@@ -43,7 +43,7 @@ script:
   native:
     container:
       name: "fluent"
-      image: "ghcr.io/nesi/nesi-docker-base:v0.10.4"
+      image: "ghcr.io/nesi/nesi-docker-base:v0.11.0"
       command: ["/bin/bash","-l","<%= staged_root %>/job_script_content.sh"]
       restart_policy: 'OnFailure'
       env:
