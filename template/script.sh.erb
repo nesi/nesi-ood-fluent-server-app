@@ -48,6 +48,8 @@ token_debug() {
     sleep 5
   done
   echo "[token-debug] port 8080 is open after $((SECONDS - start))s"
+  # Give SimBA a moment to finish starting.
+  sleep 10
 
   echo "[token-debug] --- 1. process environments ---"
   local found=0 p cmd exe val state
@@ -69,6 +71,32 @@ token_debug() {
     echo "[token-debug] pid ${p#/proc/} ${state}: ${cmd:0:120}"
   done
   (( found )) || echo "[token-debug] no fluent/cortex processes found"
+
+  # SimBA (the Python/uvicorn web server Fluent starts) is what checks the
+  # token. Show how it was launched and any token-like variables it has.
+  echo "[token-debug] --- 1b. SimBA web server process ---"
+  found=0
+  local name value shown
+  for p in /proc/[0-9]*; do
+    cmd=$( { tr '\0' ' ' < "$p/cmdline"; } 2>/dev/null ) || continue
+    [[ "$cmd" == *[Ss]im[Bb][Aa]* || "$cmd" == *uvicorn* ]] || continue
+    [[ "$cmd" == *token_debug* || "$cmd" == *grep* ]] && continue
+    found=1
+    echo "[token-debug] pid ${p#/proc/} cmdline: ${cmd:0:800}"
+    { tr '\0' '\n' < "$p/environ"; } 2>/dev/null \
+      | grep -i -E '^[^=]*(token|simba|auth|passw|secret|key|webserver|_ws)[^=]*=' \
+      | while IFS='=' read -r name value; do
+          if [[ "$value" == "$FLUENT_WEBSERVER_TOKEN" ]]; then
+            shown="= our token"
+          elif [[ -z "$value" ]]; then
+            shown="(empty)"
+          else
+            shown="${value:0:4}... (${#value} chars)"
+          fi
+          echo "[token-debug]   env $name $shown"
+        done
+  done
+  (( found )) || echo "[token-debug] no SimBA/uvicorn process found"
 
   echo "[token-debug] --- 2. transcript ---"
   grep -i -n -e token -e "web server" -e password ./*.trn 2>/dev/null \
