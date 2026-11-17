@@ -14,6 +14,10 @@ source /bin/save_passwd_as_secret
   fwtoken=SecureRandom.uuid
 -%>
 export FLUENT_WEBSERVER_TOKEN="<%= fwtoken %>"
+# The basic template writes each conn_param into connection.yml from the shell
+# variable of the same name, so `fwtoken` must exist as a shell variable for
+# view.html.erb to receive it.
+export fwtoken="$FLUENT_WEBSERVER_TOKEN"
 export HOST_CFG
 
 /bin/bash /opt/open_ondemand/helpers/k8_helper fwtoken "$FLUENT_WEBSERVER_TOKEN"

@@ -6,8 +6,9 @@ function launchFluent() {
 
   // Preload session storage before app boots. Fluent's sign-in form reads
   // sessionStorage "password" and sends sha256(password) as a Bearer token.
-  // The token comes from the pod secret's `password` key (see before.sh.erb).
-  const token = "<%= password %>";
+  // The token reaches the view as `fwtoken` (connection.yml) or, if OnDemand
+  // reads the pod secret instead, as `password` (see before.sh.erb).
+  const token = "<%= fwtoken.to_s.empty? ? password : fwtoken %>";
   if (token) {
     w.sessionStorage.setItem("password", token);
   } else {
