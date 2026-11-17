@@ -76,12 +76,13 @@ token_debug() {
   # token. Show how it was launched and any token-like variables it has.
   echo "[token-debug] --- 1b. SimBA web server process ---"
   found=0
-  local name value shown
+  local name value shown simba_exe=""
   for p in /proc/[0-9]*; do
     cmd=$( { tr '\0' ' ' < "$p/cmdline"; } 2>/dev/null ) || continue
     [[ "$cmd" == *[Ss]im[Bb][Aa]* || "$cmd" == *uvicorn* ]] || continue
     [[ "$cmd" == *token_debug* || "$cmd" == *grep* ]] && continue
     found=1
+    simba_exe="${cmd%% *}"
     echo "[token-debug] pid ${p#/proc/} cmdline: ${cmd:0:800}"
     { tr '\0' '\n' < "$p/environ"; } 2>/dev/null \
       | grep -i -E '^[^=]*(token|simba|auth|passw|secret|key|webserver|_ws)[^=]*=' \
@@ -97,6 +98,42 @@ token_debug() {
         done
   done
   (( found )) || echo "[token-debug] no SimBA/uvicorn process found"
+
+  # How does the web UI send the token? Look in the front-end bundle.
+  echo "[token-debug] --- 1c. front-end token handling ---"
+  local ui js
+  if [[ -n "$simba_exe" ]]; then
+    ui="$(dirname "$(dirname "$simba_exe")")/ui"
+    for js in "$ui"/assets/index-*.js; do
+      [[ -f "$js" ]] || continue
+      echo "[token-debug] $js"
+      grep -o -E '.{0,150}(sessionStorage|localStorage|connection/ping|[Aa]uthorization|Bearer|X-[A-Za-z-]*[Tt]oken|setItem\("password)[^;]{0,150}' "$js" 2>/dev/null \
+        | head -40 | sed 's/^/[token-debug]   /'
+    done
+  else
+    echo "[token-debug] SimBA path unknown, skipping"
+  fi
+
+  # Call SimBA directly (no OnDemand proxy) with the token sent different ways.
+  echo "[token-debug] --- 1d. direct ping, bypassing OnDemand ---"
+  if command -v curl > /dev/null; then
+    local url="http://127.0.0.1:8080/api/connection/ping" t="$FLUENT_WEBSERVER_TOKEN"
+    ping_try() {
+      local label=$1; shift
+      local out
+      out=$(curl -s -m 10 -w ' HTTP %{http_code}' -X POST "$@" 2>/dev/null)
+      echo "[token-debug]   ${label}: ${out:0:200}"
+    }
+    ping_try "no token            " "$url"
+    ping_try "Authorization Bearer" -H "Authorization: Bearer $t" "$url"
+    ping_try "Authorization plain " -H "Authorization: $t" "$url"
+    ping_try "?token= query       " "$url?token=$t"
+    ping_try "cookie token=       " -b "token=$t" "$url"
+    ping_try "JSON body token     " -H 'Content-Type: application/json' -d "{\"token\":\"$t\"}" "$url"
+    ping_try "JSON body password  " -H 'Content-Type: application/json' -d "{\"password\":\"$t\"}" "$url"
+  else
+    echo "[token-debug] curl not available, skipping"
+  fi
 
   echo "[token-debug] --- 2. transcript ---"
   grep -i -n -e token -e "web server" -e password ./*.trn 2>/dev/null \
