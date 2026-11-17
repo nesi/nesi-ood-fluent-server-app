@@ -4,8 +4,16 @@ function launchFluent() {
   // Create new window.
   const w = window.open("about:blank", "_blank");
 
-  // Preload session storage before app boots
-  w.sessionStorage.setItem("password", "<%= fwtoken %>");
+  // Preload session storage before app boots. Fluent's sign-in form reads
+  // sessionStorage "password" and sends sha256(password) as a Bearer token.
+  // The token comes from the pod secret's `password` key (see before.sh.erb).
+  const token = "<%= password %>";
+  if (token) {
+    w.sessionStorage.setItem("password", token);
+  } else {
+    // Clear any stale value from an earlier session.
+    w.sessionStorage.removeItem("password");
+  }
   w.location = "/rnode/<%= host %>/<%= port %>/"
 
   // Timer, wait for DOM to load.
