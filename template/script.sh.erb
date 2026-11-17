@@ -156,6 +156,10 @@ echo "Starting up Fluent..."
 # Limit must be small to avoid this taking forever.
 ulimit -n  16384
 
+# Run the checks in the background; Fluent stays in the foreground as before
+# (running Fluent in the background made the container restart once).
+token_debug &
+
 if [[ "$WS_LAUNCH_MODE" == "journal" ]]; then
   # Journal holds the token, so keep it private to this pod's temp directory.
   JOU="$TMPDIR/start_ws.jou"
@@ -171,17 +175,12 @@ EOF
   echo "$CMD"
   # Without -ws, Fluent -g reads commands from stdin after the journal and
   # quits on EOF, so keep stdin open.
-  tail -f /dev/null | $CMD &
+  tail -f /dev/null | $CMD
 else
   CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=8080 -ws-portspan=0"
   echo "[token-debug] launch mode: flag"
   set -x
   echo "$CMD"
-  $CMD &
+  $CMD
 fi
-FLUENT_PID=$!
-
-token_debug &
-
-wait "$FLUENT_PID"
 # -mpi=openmpi -nm
