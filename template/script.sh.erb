@@ -1,5 +1,13 @@
 echo "Running script.sh.erb script"
 
+# --- TOKEN DEBUG -------------------------------------------------------------
+# How the Fluent web server is started while debugging FLUENT_WEBSERVER_TOKEN.
+#   flag    : `fluent ... -ws` on the command line (normal behaviour).
+#   journal : start Fluent without -ws, then a journal sets the token with
+#             (putenv ...) and starts the web server from inside Fluent.
+WS_LAUNCH_MODE="flag"
+# -----------------------------------------------------------------------------
+
 echo "module purge"
 module purge
 
@@ -18,7 +26,63 @@ module unload Qt5
 
 TMPDIR="$(mktemp -d)"
 
-CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=8080 -ws-portspan=0"
+# TOKEN DEBUG: is the token still in this shell after the module commands?
+if [[ -n "${FLUENT_WEBSERVER_TOKEN:-}" ]]; then
+  echo "[token-debug] script.sh: FLUENT_WEBSERVER_TOKEN is set (${#FLUENT_WEBSERVER_TOKEN} chars)"
+else
+  echo "[token-debug] script.sh: FLUENT_WEBSERVER_TOKEN is NOT set after module load"
+fi
+
+# TOKEN DEBUG: runs once the web server answers on 8080, then reports
+#   1. whether each Fluent/cortex process has the token in its environment,
+#   2. any mention of a token in the transcript,
+#   3. files Fluent wrote in ~/.ansys, ~/.fluent* or the output directory at start-up.
+token_debug() {
+  { set +x; } 2>/dev/null
+  local start=$SECONDS
+  until (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null; do
+    if (( SECONDS - start > 900 )); then
+      echo "[token-debug] gave up waiting for port 8080"
+      return
+    fi
+    sleep 5
+  done
+  echo "[token-debug] port 8080 is open after $((SECONDS - start))s"
+
+  echo "[token-debug] --- 1. process environments ---"
+  local found=0 p cmd exe val state
+  for p in /proc/[0-9]*; do
+    cmd=$( { tr '\0' ' ' < "$p/cmdline"; } 2>/dev/null ) || continue
+    # Match on the executable name only: the output directory path contains
+    # "fluent-server", so matching the whole command line catches bash too.
+    exe=$(basename "${cmd%% *}" 2>/dev/null)
+    [[ "$exe" == cortex* || "$exe" == fluent* ]] || continue
+    found=1
+    val=$( { tr '\0' '\n' < "$p/environ"; } 2>/dev/null | sed -n 's/^FLUENT_WEBSERVER_TOKEN=//p')
+    if [[ -z "$val" ]]; then
+      state="MISSING"
+    elif [[ "$val" == "$FLUENT_WEBSERVER_TOKEN" ]]; then
+      state="matches"
+    else
+      state="DIFFERENT value"
+    fi
+    echo "[token-debug] pid ${p#/proc/} ${state}: ${cmd:0:120}"
+  done
+  (( found )) || echo "[token-debug] no fluent/cortex processes found"
+
+  echo "[token-debug] --- 2. transcript ---"
+  grep -i -n -e token -e "web server" -e password ./*.trn 2>/dev/null \
+    || echo "[token-debug] no token/password lines in transcript"
+
+  echo "[token-debug] --- 3. files written since start-up ---"
+  find "$HOME/.ansys" "$HOME"/.fluent* . -type f -newer "$TMPDIR" 2>/dev/null \
+    | grep -v -e '\.trn$' -e 'pod\.log$' \
+    | while read -r f; do
+        echo "[token-debug] $f"
+        grep -i -l -e token -e password "$f" 2>/dev/null | sed 's/^/[token-debug]   mentions token\/password: /'
+      done
+  echo "[token-debug] done"
+}
 
 # Launch the Fluent Server
 echo "Starting up Fluent..."
@@ -27,7 +91,32 @@ echo "Starting up Fluent..."
 # Limit must be small to avoid this taking forever.
 ulimit -n  16384
 
-set -x
-echo "$CMD"
-$CMD
+if [[ "$WS_LAUNCH_MODE" == "journal" ]]; then
+  # Journal holds the token, so keep it private to this pod's temp directory.
+  JOU="$TMPDIR/start_ws.jou"
+  ( umask 077
+    cat > "$JOU" <<EOF
+(putenv "FLUENT_WEBSERVER_TOKEN" "$FLUENT_WEBSERVER_TOKEN")
+/server/start-web-server 8080
+EOF
+  )
+  CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -g -i $JOU"
+  echo "[token-debug] launch mode: journal"
+  set -x
+  echo "$CMD"
+  # Without -ws, Fluent -g reads commands from stdin after the journal and
+  # quits on EOF, so keep stdin open.
+  tail -f /dev/null | $CMD &
+else
+  CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=8080 -ws-portspan=0"
+  echo "[token-debug] launch mode: flag"
+  set -x
+  echo "$CMD"
+  $CMD &
+fi
+FLUENT_PID=$!
+
+token_debug &
+
+wait "$FLUENT_PID"
 # -mpi=openmpi -nm
