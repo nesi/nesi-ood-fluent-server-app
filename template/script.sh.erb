@@ -1,11 +1,11 @@
 echo "Running script.sh.erb script"
 
 # --- TOKEN DEBUG -------------------------------------------------------------
-# How the Fluent web server is started while debugging FLUENT_WEBSERVER_TOKEN.
-#   flag    : `fluent ... -ws` on the command line (normal behaviour).
-#   journal : start Fluent without -ws, then a journal sets the token with
-#             (putenv ...) and starts the web server from inside Fluent.
-WS_LAUNCH_MODE="flag"
+# HEADER_PROXY=1 puts a small logging proxy on 8080 in front of Fluent (moved to
+# 8081). It logs the Authorization header each browser request arrives with, so
+# we can see what OnDemand forwards. WebSockets are not proxied, so the Fluent
+# UI will not fully work past sign-in while this is on.
+HEADER_PROXY=1
 # -----------------------------------------------------------------------------
 
 echo "module purge"
@@ -40,14 +40,14 @@ fi
 token_debug() {
   { set +x; } 2>/dev/null
   local start=$SECONDS
-  until (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null; do
+  until (echo > /dev/tcp/127.0.0.1/$FLUENT_PORT) 2>/dev/null; do
     if (( SECONDS - start > 900 )); then
-      echo "[token-debug] gave up waiting for port 8080"
+      echo "[token-debug] gave up waiting for port $FLUENT_PORT"
       return
     fi
     sleep 5
   done
-  echo "[token-debug] port 8080 is open after $((SECONDS - start))s"
+  echo "[token-debug] port $FLUENT_PORT is open after $((SECONDS - start))s"
   # Give SimBA a moment to finish starting.
   sleep 10
 
@@ -102,7 +102,7 @@ token_debug() {
   # Call SimBA directly (no OnDemand proxy) with the token sent different ways.
   echo "[token-debug] --- 1d. direct ping, bypassing OnDemand ---"
   if command -v curl > /dev/null; then
-    local url="http://127.0.0.1:8080/api/connection/ping" t="$FLUENT_WEBSERVER_TOKEN"
+    local url="http://127.0.0.1:$FLUENT_PORT/api/connection/ping" t="$FLUENT_WEBSERVER_TOKEN"
     ping_try() {
       local label=$1; shift
       local out
@@ -156,31 +156,79 @@ echo "Starting up Fluent..."
 # Limit must be small to avoid this taking forever.
 ulimit -n  16384
 
-# Run the checks in the background; Fluent stays in the foreground as before
-# (running Fluent in the background made the container restart once).
+FLUENT_PORT=8080
+
+# TOKEN DEBUG: logging proxy on 8080 -> Fluent on 8081.
+if [[ "$HEADER_PROXY" == "1" ]]; then
+  PY=$(command -v python3 || ls /opt/nesi/share/ANSYS/v*/commonfiles/CPython/3_10/linx64/Release/python/bin/python3 2>/dev/null | head -1)
+  if [[ -n "$PY" ]]; then
+    FLUENT_PORT=8081
+    PROXY_PY="$TMPDIR/header_proxy.py"
+    cat > "$PROXY_PY" <<'EOF'
+import hashlib, http.client, os, sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+UPSTREAM = int(sys.argv[1])
+TOKEN = os.environ.get("FLUENT_WEBSERVER_TOKEN", "")
+EXPECTED = "Bearer " + hashlib.sha256(TOKEN.encode()).hexdigest()
+HOP = {"connection", "keep-alive", "te", "trailers", "transfer-encoding", "upgrade", "proxy-connection"}
+
+def describe(auth):
+    if auth is None:
+        return "MISSING"
+    if auth == EXPECTED:
+        return "= Bearer sha256(token)  [correct]"
+    return "DIFFERENT: %r... (%d chars)" % (auth[:15], len(auth))
+
+class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def log_message(self, *a):
+        pass
+    def handle_any(self):
+        if self.path.startswith("/api/"):
+            print("[token-debug] proxy %s %s  Authorization: %s" % (
+                self.command, self.path, describe(self.headers.get("Authorization"))), flush=True)
+            print("[token-debug]   header names: %s" % ", ".join(sorted(self.headers.keys())), flush=True)
+        if self.headers.get("Upgrade"):
+            self.send_response(502); self.send_header("Content-Length", "0"); self.end_headers()
+            return
+        n = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(n) if n else None
+        hdrs = {k: v for k, v in self.headers.items() if k.lower() not in HOP}
+        try:
+            c = http.client.HTTPConnection("127.0.0.1", UPSTREAM, timeout=300)
+            c.request(self.command, self.path, body=body, headers=hdrs)
+            r = c.getresponse()
+            data = r.read()
+        except Exception as e:
+            self.send_response(502); self.send_header("Content-Length", "0"); self.end_headers()
+            return
+        if self.path.startswith("/api/"):
+            print("[token-debug]   -> upstream HTTP %d" % r.status, flush=True)
+        self.send_response(r.status)
+        for k, v in r.getheaders():
+            if k.lower() not in HOP and k.lower() != "content-length":
+                self.send_header(k, v)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(data)
+    do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_OPTIONS = do_HEAD = handle_any
+
+ThreadingHTTPServer(("0.0.0.0", 8080), H).serve_forever()
+EOF
+    echo "[token-debug] header proxy: $PY on 8080 -> Fluent on 8081"
+    "$PY" -I "$PROXY_PY" 8081 &
+  else
+    echo "[token-debug] header proxy: no python3 found, running without it"
+  fi
+fi
+
+# Run the checks in the background; Fluent stays in the foreground.
 token_debug &
 
-if [[ "$WS_LAUNCH_MODE" == "journal" ]]; then
-  # Journal holds the token, so keep it private to this pod's temp directory.
-  JOU="$TMPDIR/start_ws.jou"
-  ( umask 077
-    cat > "$JOU" <<EOF
-(putenv "FLUENT_WEBSERVER_TOKEN" "$FLUENT_WEBSERVER_TOKEN")
-/server/start-web-server 8080
-EOF
-  )
-  CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -g -i $JOU"
-  echo "[token-debug] launch mode: journal"
-  set -x
-  echo "$CMD"
-  # Without -ws, Fluent -g reads commands from stdin after the journal and
-  # quits on EOF, so keep stdin open.
-  tail -f /dev/null | $CMD
-else
-  CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=8080 -ws-portspan=0"
-  echo "[token-debug] launch mode: flag"
-  set -x
-  echo "$CMD"
-  $CMD
-fi
+CMD="fluent <%= context.is3d %><%= context.prescision %> <%= context.ismeshing %> -ws -g -ws-port=$FLUENT_PORT -ws-portspan=0"
+set -x
+echo "$CMD"
+$CMD
 # -mpi=openmpi -nm
