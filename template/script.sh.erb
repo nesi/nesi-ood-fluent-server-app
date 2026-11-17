@@ -99,21 +99,6 @@ token_debug() {
   done
   (( found )) || echo "[token-debug] no SimBA/uvicorn process found"
 
-  # How does the web UI send the token? Look in the front-end bundle.
-  echo "[token-debug] --- 1c. front-end token handling ---"
-  local ui js
-  if [[ -n "$simba_exe" ]]; then
-    ui="$(dirname "$(dirname "$simba_exe")")/ui"
-    for js in "$ui"/assets/index-*.js; do
-      [[ -f "$js" ]] || continue
-      echo "[token-debug] $js"
-      grep -o -E '.{0,150}(sessionStorage|localStorage|connection/ping|[Aa]uthorization|Bearer|X-[A-Za-z-]*[Tt]oken|setItem\("password)[^;]{0,150}' "$js" 2>/dev/null \
-        | head -40 | sed 's/^/[token-debug]   /'
-    done
-  else
-    echo "[token-debug] SimBA path unknown, skipping"
-  fi
-
   # Call SimBA directly (no OnDemand proxy) with the token sent different ways.
   echo "[token-debug] --- 1d. direct ping, bypassing OnDemand ---"
   if command -v curl > /dev/null; then
@@ -124,6 +109,19 @@ token_debug() {
       out=$(curl -s -m 10 -w ' HTTP %{http_code}' -X POST "$@" 2>/dev/null)
       echo "[token-debug]   ${label}: ${out:0:200}"
     }
+    # The web UI sends sha256(password) as a Bearer token.
+    local h
+    h=$(printf '%s' "$t" | sha256sum | cut -d' ' -f1)
+    ping_try "Bearer sha256(token)" -H "Authorization: Bearer $h" "$url"
+    ping_try "Bearer sha256(token\\n)" -H "Authorization: Bearer $(printf '%s\n' "$t" | sha256sum | cut -d' ' -f1)" "$url"
+    ping_try "Bearer sha256(sha256)" -H "Authorization: Bearer $(printf '%s' "$h" | sha256sum | cut -d' ' -f1)" "$url"
+    # SimBA also inherits PASSWORD from the job script; rule it in or out.
+    if [[ -n "${PASSWORD:-}" ]]; then
+      ping_try "Bearer PASSWORD     " -H "Authorization: Bearer $PASSWORD" "$url"
+      ping_try "Bearer sha256(PASSWD)" -H "Authorization: Bearer $(printf '%s' "$PASSWORD" | sha256sum | cut -d' ' -f1)" "$url"
+    else
+      echo "[token-debug]   PASSWORD not set in this shell, skipping PASSWORD pings"
+    fi
     ping_try "no token            " "$url"
     ping_try "Authorization Bearer" -H "Authorization: Bearer $t" "$url"
     ping_try "Authorization plain " -H "Authorization: $t" "$url"
@@ -134,6 +132,8 @@ token_debug() {
   else
     echo "[token-debug] curl not available, skipping"
   fi
+  echo "[token-debug] SimBA log lines about tokens/passwords:"
+  grep -h -i -E 'token|password|auth' ./simba-fluent-*.log 2>/dev/null | tail -20 | sed 's/^/[token-debug]   /'
 
   echo "[token-debug] --- 2. transcript ---"
   grep -i -n -e token -e "web server" -e password ./*.trn 2>/dev/null \
