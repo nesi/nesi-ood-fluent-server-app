@@ -1,12 +1,48 @@
-<%-
-  # The token reaches the view as `fwtoken` (connection.yml) or, if OnDemand
-  # reads the pod secret instead, as `password` (see before.sh.erb).
-  token = fwtoken.to_s.empty? ? password.to_s : fwtoken.to_s
--%>
-<form action="/rnode/<%= host %>/<%= port %>/" method="get" target="_blank">
-  <input type="hidden" name="fluent-auth-token" value="<%= token %>"/>
-  <input type="hidden" name="fw-auth-token" value="<%= token %>"/>
-  <button class="btn btn-primary" style="background-color:#ffb71c; border-color: black; color: black" type="submit">
-    <i class="fa-solid fa-mound"></i> Connect
-  </button>
-</form>
+<script>
+function launchFluent() {
+
+  // Create new window.
+  const w = window.open("about:blank", "_blank");
+
+  // Preload session storage before app boots. Fluent's sign-in form reads
+  // sessionStorage "password" and sends sha256(password) as a Bearer token.
+  // The token reaches the view as `fwtoken` (connection.yml) or, if OnDemand
+  // reads the pod secret instead, as `password` (see before.sh.erb).
+  const token = "<%= fwtoken.to_s.empty? ? password : fwtoken %>";
+  if (token) {
+    w.sessionStorage.setItem("password", token);
+  } else {
+    // Clear any stale value from an earlier session.
+    w.sessionStorage.removeItem("password");
+  }
+  w.location = "/rnode/<%= host %>/<%= port %>/"
+
+  // Timer, wait for DOM to load. Give up after 2 minutes so the poll can't
+  // run forever if the sign-in button never appears.
+  const started = Date.now();
+  const timer = setInterval(() => {
+    // server laggy try catch because sometimes fails.
+    try {
+      // Prevent infinite polling if window closed or it's taking too long.
+      if (!w || w.closed || Date.now() - started > 120000) {
+        clearInterval(timer);
+        return;
+      }
+
+      const btn = w.document.querySelector('[data-testid="sign-in-button"]');
+      // If button exists, click it.
+      if (btn) {
+        btn.click();
+        clearInterval(timer);
+      }
+    } catch (e) {
+      // DOM not ready yet, keep waiting
+    }
+  }, 100);
+}
+</script>
+
+<button class="btn btn-primary"
+        style="background-color:#ffb71c; border-color: black; color: black"
+        onclick="launchFluent()">Connect
+</button>
