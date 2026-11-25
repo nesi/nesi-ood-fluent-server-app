@@ -60,11 +60,9 @@ script:
         <% end %>
       <% end %>
       startup_probe:
-        initial_delay_seconds: 10
-        # Fluent takes ~60s to open 8080 after a ~10s+ setup; 12 x 5s was too
-        # tight and made the container restart once on a cold start.
-        failure_threshold: 36
-        period_seconds: 5
+        initial_delay_seconds: 20
+        failure_threshold: 20
+        period_seconds: 10
     mounts:
       - type: host
         name: home
